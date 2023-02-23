@@ -182,6 +182,7 @@ final class EmberServerBuilder[F[_]: Async: Network] private (
       ready <- Resource.eval(Deferred[F, Either[Throwable, SocketAddress[IpAddress]]])
       shutdown <- Resource.eval(Shutdown[F](shutdownTimeout))
       wsBuilder <- Resource.eval(WebSocketBuilder2[F])
+      // MEMO: background effectを実行
       _ <- unixSocketConfig.fold(
         Concurrent[F].background(
           ServerHelpers

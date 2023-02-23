@@ -32,6 +32,7 @@ object Http {
     * @param run the function to lift
     * @return an [[Http]] that suspends `run`.
     */
+  // CONT: F.unitしてるのなんか勿体無いきがす
   def apply[F[_], G[_]](run: Request[G] => F[Response[G]])(implicit F: Monad[F]): Http[F, G] =
     Kleisli(req => F.unit >> run(req))
 
