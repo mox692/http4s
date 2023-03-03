@@ -179,6 +179,8 @@ final class EmberServerBuilder[F[_]: Async: Network] private (
 
   def build: Resource[F, Server] =
     for {
+      // MEMO: ここのFは基本 IO (Async) が入るはずで、
+      //       デフォルトだとfs2の NetworkPlatform[Async] が手に入る
       sg <- sgOpt.getOrElse(Network[F]).pure[Resource[F, *]]
       ready <- Resource.eval(Deferred[F, Either[Throwable, SocketAddress[IpAddress]]])
       shutdown <- Resource.eval(Shutdown[F](shutdownTimeout))
@@ -190,6 +192,7 @@ final class EmberServerBuilder[F[_]: Async: Network] private (
           // TODO: unixSocketConfig がNoneになるときはどういうとき？
           //       -> default ではnoneくさい
           ServerHelpers
+            // MEMO: こいつがStreamを返す
             .server(
               host,
               port,
@@ -210,6 +213,7 @@ final class EmberServerBuilder[F[_]: Async: Network] private (
               wsBuilder.webSocketKey,
               enableHttp2,
             )
+            // MEMO: drain.compile とも書けるc
             .compile
             .drain
         )

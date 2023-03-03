@@ -54,6 +54,7 @@ private[server] object ServerHelpers extends ServerHelpersPlatform {
   private val serverFailure =
     Response(Status.InternalServerError).putHeaders(org.http4s.headers.`Content-Length`.zero)
 
+  // MEMO: おそらくデフォルトで呼ばれるサーバー
   def server[F[_]](
       host: Option[Host],
       port: Port,
@@ -75,6 +76,7 @@ private[server] object ServerHelpers extends ServerHelpersPlatform {
       webSocketKey: Key[WebSocketContext[F]],
       enableHttp2: Boolean,
   )(implicit F: Async[F]): Stream[F, Nothing] = {
+    // MEMO: ソケットを吐き続ける
     val server: Stream[F, Socket[F]] =
       Stream
         .resource(sg.serverResource(host, Some(port), additionalSocketOptions))
@@ -131,7 +133,8 @@ private[server] object ServerHelpers extends ServerHelpersPlatform {
             Either.right(SocketAddress(Ipv4Address.fromBytes(0, 0, 0, 0), port"0"))
           )
         ) // Sketchy
-        .drain ++
+        // MEMO: このdrainの使い方はdocコメントに書かれているそれ
+        .drain ++ 
         unixSockets
           .server(unixSocketAddress, deleteIfExists, deleteOnClose)
 
