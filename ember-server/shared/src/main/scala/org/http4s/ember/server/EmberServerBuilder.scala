@@ -53,6 +53,7 @@ final class EmberServerBuilder[F[_]: Async: Network] private (
     val shutdownTimeout: Duration,
     val additionalSocketOptions: List[SocketOption],
     private val logger: Logger[F],
+    // MEMO: defaultではNone?
     private val unixSocketConfig: Option[(UnixSockets[F], UnixSocketAddress, Boolean, Boolean)],
     private val enableHttp2: Boolean,
 ) { self =>
@@ -183,8 +184,11 @@ final class EmberServerBuilder[F[_]: Async: Network] private (
       shutdown <- Resource.eval(Shutdown[F](shutdownTimeout))
       wsBuilder <- Resource.eval(WebSocketBuilder2[F])
       // MEMO: background effectを実行
+      // unixSocketConfig: Option[(UnixSockets[F], UnixSocketAddress, Boolean, Boolean)]
       _ <- unixSocketConfig.fold(
         Concurrent[F].background(
+          // TODO: unixSocketConfig がNoneになるときはどういうとき？
+          //       -> default ではnoneくさい
           ServerHelpers
             .server(
               host,
