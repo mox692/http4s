@@ -79,6 +79,9 @@ private[server] object ServerHelpers extends ServerHelpersPlatform {
     // MEMO: ソケットを吐き続ける
     val server: Stream[F, Socket[F]] =
       Stream
+        // MEMO: sg.serverResource で　Socketを取得
+        // おそらく大抵の場合はfs2の io/jvm-native/src/main/scala/fs2/io/net/SocketPlatform.scala の
+        // AsyncSocket が取り出される.
         .resource(sg.serverResource(host, Some(port), additionalSocketOptions))
         .attempt
         .evalTap(e => ready.complete(e.map(_._1)))
@@ -316,6 +319,7 @@ private[server] object ServerHelpers extends ServerHelpersPlatform {
           )
     }
 
+  // MEMO: 実際にuserが定義したHttpAppが呼び出される箇所
   private[internal] def runApp[F[_]](
       head: Array[Byte],
       read: Read[F],
