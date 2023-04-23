@@ -23,11 +23,11 @@ ThisBuild / githubWorkflowJobSetup ~= {
 }
 ThisBuild / githubWorkflowJobSetup ++= Seq(
   WorkflowStep.Use(
-    UseRef.Public("cachix", "install-nix-action", "v17"),
+    UseRef.Public("cachix", "install-nix-action", "v20"),
     name = Some("Install Nix"),
   ),
   WorkflowStep.Use(
-    UseRef.Public("cachix", "cachix-action", "v10"),
+    UseRef.Public("cachix", "cachix-action", "v12"),
     name = Some("Install Cachix"),
     params = Map("name" -> "http4s", "authToken" -> "${{ secrets.CACHIX_AUTH_TOKEN }}"),
   ),
@@ -282,6 +282,7 @@ lazy val tests = libraryCrossProject("tests")
       scalacheckEffect.value,
       scalacheckEffectMunit.value,
     ),
+    githubWorkflowArtifactUpload := false,
   )
   .nativeSettings(
     libraryDependencies ++= Seq(
@@ -403,6 +404,12 @@ lazy val client = libraryCrossProject("client")
         "org.http4s.client.websocket.WSConnectionHighLevel.sendClose$default$1"
       ),
       // end wsclient
+      ProblemFilters.exclude[IncompatibleResultTypeProblem](
+        "org.http4s.client.JavaNetClientBuilder.F"
+      ), // sealed protected
+      ProblemFilters.exclude[IncompatibleMethTypeProblem](
+        "org.http4s.client.JavaNetClientBuilder.this"
+      ), // private
     ) ++ {
       if (tlIsScala3.value)
         Seq(
@@ -517,6 +524,7 @@ lazy val emberCore = libraryCrossProject("ember-core", CrossType.Full)
       ProblemFilters.exclude[DirectMissingMethodProblem](
         "org.http4s.ember.core.h2.H2Frame#Ping.emptyBV"
       ),
+      ProblemFilters.exclude[Problem]("org.http4s.ember.core.h2.H2Client*"),
     ) ++ {
       if (tlIsScala3.value)
         Seq(
@@ -894,9 +902,12 @@ def http4sCrossProject(name: String, crossType: CrossType) =
     .jsSettings(
       Test / scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule))
     )
+    .nativeEnablePlugins(ScalaNativeBrewedConfigPlugin)
     .nativeSettings(
       tlVersionIntroduced := List("2.12", "2.13", "3").map(_ -> "0.23.16").toMap,
-      unusedCompileDependenciesTest := {},
+      Test / nativeBrewFormulas ++= {
+        if (sys.env.contains("DEVSHELL_DIR")) Set.empty else Set("s2n")
+      },
       Test / envVars += "S2N_DONT_MLOCK" -> "1",
     )
     .enablePlugins(Http4sPlugin)
