@@ -91,6 +91,7 @@ sealed abstract class WebSocketBuilder2[F[_]: Applicative] private (
     )
 
   private def buildResponse(webSocket: WebSocket[F]): F[Response[F]] =
+    // MEMO: ここでhandshakeにおけるkey付きのWSレスポンスを返す
     onNonWebSocketRequest
       .map(
         _.withAttribute(
@@ -187,9 +188,11 @@ object WebSocketBuilder2 {
   ): WebSocketBuilder2[F] =
     withKey(webSocketKey)
 
+  // MEMO: サーバー側でkeyを発行
   def apply[F[_]: Applicative: Unique]: F[WebSocketBuilder2[F]] =
     Key.newKey[F, WebSocketContext[F]].map(withKey[F])
 
+  // MEMO: WebSocketBuilder の実態は大体ここ
   private def withKey[F[_]: Applicative](
       webSocketKey: Key[WebSocketContext[F]]
   ): WebSocketBuilder2[F] =

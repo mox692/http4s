@@ -62,6 +62,7 @@ private[internal] object WebSocketHelpers {
   private[this] val upgradeWebSocket = Upgrade(webSocketProtocol)
 
   // TODO followup: use websocketcontext responses for error modes
+  // MEMO: websocketのconnection周りのメインロジック
   def upgrade[F[_]](
       socket: Socket[F],
       req: Request[F],
@@ -77,6 +78,7 @@ private[internal] object WebSocketHelpers {
       case Right(key) =>
         serverHandshake(key)
           .map { hashBytes =>
+            // MEMO: handshake完了のヘッダ
             val secWebSocketAccept = new `Sec-WebSocket-Accept`(hashBytes)
             val headers =
               ctx.headers ++ Headers(connectionUpgrade, upgradeWebSocket, secWebSocketAccept)
@@ -90,8 +92,10 @@ private[internal] object WebSocketHelpers {
 
     val handler = for {
       response <- wsResponse
+      // MEMO: このSendoは？
       _ <- ServerHelpers.send(socket)(Some(req), response, idleTimeout, onWriteFailure)
       _ <-
+        // MEMO: ここでelseに行くことあるの？？
         if (response.status == Status.SwitchingProtocols)
           runConnection(socket, ctx, buffer, receiveBufferSize, idleTimeout)
         else F.unit
@@ -106,6 +110,7 @@ private[internal] object WebSocketHelpers {
     }
   }
 
+  // MEMO: お、この辺をPRでいじるかも
   private[this] val nonClientTranscoder = new FrameTranscoder(false)
 
   private def runConnection[F[_]](
@@ -162,6 +167,7 @@ private[internal] object WebSocketHelpers {
     }
   }
 
+  // MEMO: CloseとPingを処理
   private def handleIncomingFrame[F[_]](
       writeFrame: WebSocketFrame => F[Unit],
       closeState: Ref[F, Close],
@@ -192,6 +198,8 @@ private[internal] object WebSocketHelpers {
       Chunk.array(bytes)
     }
 
+  // MEMO: Byte -> WebSocketFrame にする
+  // おそらくPRでは主にここら辺をいじる必要がある
   private def decodeFrames[F[_]](implicit F: ApplicativeThrow[F]): Pipe[F, Byte, WebSocketFrame] =
     stream => {
       def go(rest: Stream[F, Byte], acc: Array[Byte]): Pull[F, WebSocketFrame, Unit] =

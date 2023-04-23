@@ -405,6 +405,7 @@ private[server] object ServerHelpers extends ServerHelpersPlatform {
       requestLineParseErrorHandler: Throwable => F[Response[F]],
   ): Stream[F, Nothing] = {
     type State = (Array[Byte], Boolean)
+    // MEMO: ここでhttp2のAppかそれ以外かの分岐をしてる. WSも似たような処理があるのでは？
     val finalApp = if (enableHttp2) H2Server.h2cUpgradeMiddleware(httpApp) else httpApp
     val read: Read[F] = timeoutMaybe(socket.read(receiveBufferSize), idleTimeout)
       .adaptError {
@@ -446,6 +447,7 @@ private[server] object ServerHelpers extends ServerHelpersPlatform {
           case Right((req, resp, drain)) =>
             // TODO: Should we pay this cost for every HTTP request?
             // Intercept the response for various upgrade paths
+            // MEMO: Sec-WebSocket-Accept のkeyがあるかをcheck
             resp.attributes.lookup(webSocketKey) match {
               case Some(ctx) =>
                 drain.flatMap {

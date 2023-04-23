@@ -218,6 +218,7 @@ final class EmberServerBuilder[F[_]: Async: Network] private (
               port,
               additionalSocketOptions,
               sg,
+              // MEMO: なんと、ここでhttp1とwebsocketを同質に扱っている
               httpApp(wsBuilder),
               tlsInfoOpt,
               ready,

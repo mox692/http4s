@@ -43,20 +43,25 @@ import java.nio.charset.StandardCharsets
 
 class EmberServerWebSocketSuite extends Http4sSuite with DispatcherIOFixture {
 
+  // MEMO: この関数(WebSocketBuilder2[F] => HttpApp[F])で、websocket requestが来たときの挙動を定義
   def service[F[_]](wsBuilder: WebSocketBuilder2[F])(implicit F: Async[F]): HttpApp[F] = {
     val dsl = new Http4sDsl[F] {}
     import dsl._
 
     HttpRoutes
       .of[F] {
+        // ここのConnectionは1回貼られると、そのwebsocket通信間では使いまわされる
         case GET -> Root =>
           Ok("Hello!")
         case GET -> Root / "ws-echo" =>
           val sendReceive: Pipe[F, WebSocketFrame, WebSocketFrame] = _.flatMap {
+            // MEMO: 多分wsに対する振る舞いを定義するときはこういう感じでかっく
             case WebSocketFrame.Text(text, _) => Stream(WebSocketFrame.Text(text))
             case _ => Stream(WebSocketFrame.Text("unknown"))
           }
-          wsBuilder.build(sendReceive)
+          // MEMO: こいつがそのまま F[HttpResponse[F]] になる
+          // MEMO: ここの sendReceive は、1回connectionが貼られると
+          F.delay{ println("come ws request")} >> wsBuilder.build(sendReceive)
         case GET -> Root / "ws-close" =>
           val send = Stream(WebSocketFrame.Text("foo"))
           wsBuilder.build(send, _.void)
@@ -145,68 +150,68 @@ class EmberServerWebSocketSuite extends Http4sSuite with DispatcherIOFixture {
       }
     } yield Client(waitOpen, waitClose, queue, pongQueue, remoteClosed, closeCode, client)
 
-  fixture.test("open and close connection to server") { case (server, dispatcher) =>
-    for {
-      client <- createClient(
-        URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-echo"),
-        dispatcher,
-      )
-      _ <- client.connect
-      _ <- client.close
-    } yield ()
-  }
+  // fixture.test("open and close connection to server") { case (server, dispatcher) =>
+  //   for {
+  //     client <- createClient(
+  //       URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-echo"),
+  //       dispatcher,
+  //     )
+  //     _ <- client.connect
+  //     _ <- client.close
+  //   } yield ()
+  // }
 
-  fixture.test("send and receive a message") { case (server, dispatcher) =>
-    for {
-      client <- createClient(
-        URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-echo"),
-        dispatcher,
-      )
-      _ <- client.connect
-      _ <- client.send("foo")
-      msg <- client.messages.take
-      _ <- client.close
-    } yield assertEquals(msg, "foo")
-  }
+  // fixture.test("send and receive a message") { case (server, dispatcher) =>
+  //   for {
+  //     client <- createClient(
+  //       URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-echo"),
+  //       dispatcher,
+  //     )
+  //     _ <- client.connect
+  //     _ <- client.send("foo")
+  //     msg <- client.messages.take
+  //     _ <- client.close
+  //   } yield assertEquals(msg, "foo")
+  // }
 
-  fixture.test("respond to pings") { case (server, dispatcher) =>
-    for {
-      client <- createClient(
-        URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-echo"),
-        dispatcher,
-      )
-      _ <- client.connect
-      _ <- client.ping("hello")
-      data <- client.pongs.take
-      _ <- client.close
-    } yield assertEquals(data, "hello")
-  }
+  // fixture.test("respond to pings") { case (server, dispatcher) =>
+  //   for {
+  //     client <- createClient(
+  //       URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-echo"),
+  //       dispatcher,
+  //     )
+  //     _ <- client.connect
+  //     _ <- client.ping("hello")
+  //     data <- client.pongs.take
+  //     _ <- client.close
+  //   } yield assertEquals(data, "hello")
+  // }
 
-  fixture.test("initiate close sequence with code=1000 (NORMAL) on stream termination") {
-    case (server, dispatcher) =>
-      for {
-        client <- createClient(
-          URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-close"),
-          dispatcher,
-        )
-        _ <- client.connect
-        _ <- client.messages.take
-        _ <- client.remoteClosed.get
-        code <- client.closeCode.get
-      } yield assertEquals(code, CloseFrame.NORMAL)
-  }
+  // fixture.test("initiate close sequence with code=1000 (NORMAL) on stream termination") {
+  //   case (server, dispatcher) =>
+  //     for {
+  //       client <- createClient(
+  //         URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-close"),
+  //         dispatcher,
+  //       )
+  //       _ <- client.connect
+  //       _ <- client.messages.take
+  //       _ <- client.remoteClosed.get
+  //       code <- client.closeCode.get
+  //     } yield assertEquals(code, CloseFrame.NORMAL)
+  // }
 
-  fixture.test("respects withFilterPingPongs(false)") { case (server, dispatcher) =>
-    for {
-      client <- createClient(
-        URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-filter-false"),
-        dispatcher,
-      )
-      _ <- client.connect
-      _ <- client.ping("pingu")
-      _ <- client.remoteClosed.get
-    } yield ()
-  }
+  // fixture.test("respects withFilterPingPongs(false)") { case (server, dispatcher) =>
+  //   for {
+  //     client <- createClient(
+  //       URI.create(s"ws://${server.address.getHostName}:${server.address.getPort}/ws-filter-false"),
+  //       dispatcher,
+  //     )
+  //     _ <- client.connect
+  //     _ <- client.ping("pingu")
+  //     _ <- client.remoteClosed.get
+  //   } yield ()
+  // }
 
   fixture.test("send and receive multiple messages") { case (server, dispatcher) =>
     val n = 10

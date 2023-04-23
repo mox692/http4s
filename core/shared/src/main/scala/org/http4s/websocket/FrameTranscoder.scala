@@ -80,6 +80,7 @@ private[http4s] object FrameTranscoder {
   }
 }
 
+// MEMO: PRでいじると思われる
 class FrameTranscoder(val isClient: Boolean) {
   def frameToBuffer(in: WebSocketFrame): Array[ByteBuffer] = {
     var size = 2
